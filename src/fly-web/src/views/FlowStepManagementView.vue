@@ -53,7 +53,15 @@ async function loadConstraintRules() {
 // ─── Step CRUD ────────────────────────────────────────────────────────────────
 function handleCreate() {
   stepEditMode.value = false
-  currentStep.value = { type: '', label: '', position: { x: 100, y: 100 } }
+  currentStep.value = {
+    type: '',
+    category: '',
+    label: '',
+    description: '',
+    icon: 'Document',
+    color: '#409EFF',
+    position: { x: 100, y: 100 }
+  }
   stepParams.value = []
   stepDialogVisible.value = true
 }
@@ -74,8 +82,20 @@ async function handleSaveStep() {
     ElMessage.warning('请输入步骤类型')
     return
   }
+  if (!currentStep.value.category?.trim()) {
+    ElMessage.warning('请输入步骤分类')
+    return
+  }
   if (!currentStep.value.label?.trim()) {
     ElMessage.warning('请输入步骤标签')
+    return
+  }
+  if (!currentStep.value.icon?.trim()) {
+    ElMessage.warning('请输入步骤图标')
+    return
+  }
+  if (!currentStep.value.color?.trim()) {
+    ElMessage.warning('请输入步骤颜色')
     return
   }
   stepLoading.value = true
@@ -127,6 +147,7 @@ function openEditParam(index: number) {
   paramEditMode.value = true
   paramEditIndex.value = index
   const p = stepParams.value[index]
+  if (!p) return
   currentParam.value = {
     ...p,
     options: [...p.options],
@@ -237,7 +258,15 @@ function getTypeLabel(type: string): string {
     <el-table v-loading="loading" :data="steps" stripe style="width: 100%">
       <el-table-column prop="label" label="步骤标签" min-width="140" />
       <el-table-column prop="type" label="步骤类型" min-width="120" />
-      <el-table-column label="参数" min-width="280">
+      <el-table-column prop="category" label="分类" min-width="100" />
+      <el-table-column label="图标" width="80" align="center">
+        <template #default="{ row }">
+          <el-icon :color="row.color || '#409EFF'">
+            <component :is="row.icon || 'Document'" />
+          </el-icon>
+        </template>
+      </el-table-column>
+      <el-table-column label="参数" min-width="240">
         <template #default="{ row }">
           <el-tag v-if="row.parameters.length === 0" type="info" size="small">无</el-tag>
           <template v-else>
@@ -275,12 +304,36 @@ function getTypeLabel(type: string): string {
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="步骤类型" required>
-              <el-input v-model="currentStep.type" placeholder="例如: start, process, end" />
+              <el-input v-model="currentStep.type" placeholder="例如: pipetting, incubation" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="步骤标签" required>
               <el-input v-model="currentStep.label" placeholder="步骤的显示名称" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="分类" required>
+              <el-input v-model="currentStep.category" placeholder="例如: 液体处理, 样品处理" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="图标" required>
+              <el-input v-model="currentStep.icon" placeholder="Element Plus图标名称" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="颜色" required>
+              <el-color-picker v-model="currentStep.color" show-alpha />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="描述">
+              <el-input v-model="currentStep.description" placeholder="步骤说明" />
             </el-form-item>
           </el-col>
         </el-row>

@@ -32,7 +32,11 @@ public class FlowStepService(ApplicationDbContext context)
         if (existing is null) return null;
 
         existing.Type = updated.Type;
+        existing.Category = updated.Category;
         existing.Label = updated.Label;
+        existing.Description = updated.Description;
+        existing.Icon = updated.Icon;
+        existing.Color = updated.Color;
         existing.Position = updated.Position;
         existing.Parameters = updated.Parameters;
         existing.UpdatedAt = DateTime.UtcNow;

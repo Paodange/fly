@@ -113,7 +113,11 @@ export interface ConstraintRuleDefinition {
 export interface FlowStep {
   id: string
   type: string
+  category: string
   label: string
+  description: string
+  icon: string
+  color: string
   position: NodePosition
   parameters: FlowStepParameter[]
   createdAt: string

@@ -23,7 +23,11 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasKey(s => s.Id);
             entity.Property(s => s.Type).IsRequired().HasMaxLength(200);
+            entity.Property(s => s.Category).HasMaxLength(200);
             entity.Property(s => s.Label).IsRequired().HasMaxLength(200);
+            entity.Property(s => s.Description).HasMaxLength(1000);
+            entity.Property(s => s.Icon).HasMaxLength(100);
+            entity.Property(s => s.Color).HasMaxLength(50);
             entity.Property(s => s.CreatedAt).IsRequired();
             entity.Property(s => s.UpdatedAt).IsRequired();
 
