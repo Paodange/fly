@@ -4,7 +4,11 @@ public class FlowStep
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Type { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Icon { get; set; } = string.Empty;
+    public string Color { get; set; } = string.Empty;
     public NodePosition Position { get; set; } = new();
     public List<FlowStepParameter> Parameters { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
