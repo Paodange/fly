@@ -3,7 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useWorkflowStore } from '@/stores/workflows'
 import { flowStepApi } from '@/api'
-import type { WorkflowNode, Workflow } from '@/types'
+import type { WorkflowNode } from '@/types'
 
 const workflowStore = useWorkflowStore()
 
