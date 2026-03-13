@@ -18,6 +18,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Register services
 builder.Services.AddScoped<WorkflowService>();
+builder.Services.AddScoped<FlowStepService>();
 builder.Services.AddSingleton<WorkflowExecutorService>();
 
 const string CorsPolicy = "FrontendCors";

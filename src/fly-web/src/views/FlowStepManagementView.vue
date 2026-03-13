@@ -1,36 +1,26 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useWorkflowStore } from '@/stores/workflows'
 import { flowStepApi } from '@/api'
-import type { WorkflowNode } from '@/types'
+import type { FlowStep } from '@/types'
 
-const workflowStore = useWorkflowStore()
-
-const selectedWorkflowId = ref<string>('')
-const steps = ref<WorkflowNode[]>([])
+const steps = ref<FlowStep[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const editMode = ref(false)
-const currentStep = ref<Partial<WorkflowNode>>({
+const currentStep = ref<Partial<FlowStep>>({
   type: '',
   label: '',
   position: { x: 0, y: 0 },
   parameters: {},
 })
 
-onMounted(() => workflowStore.fetchList())
+onMounted(() => loadSteps())
 
-const workflows = computed(() => workflowStore.list)
-
-async function handleWorkflowChange(workflowId: string) {
-  if (!workflowId) {
-    steps.value = []
-    return
-  }
+async function loadSteps() {
   loading.value = true
   try {
-    steps.value = await flowStepApi.list(workflowId)
+    steps.value = await flowStepApi.list()
   } catch (e: unknown) {
     ElMessage.error(`加载步骤失败: ${String(e)}`)
   } finally {
@@ -39,10 +29,6 @@ async function handleWorkflowChange(workflowId: string) {
 }
 
 function handleCreate() {
-  if (!selectedWorkflowId.value) {
-    ElMessage.warning('请先选择一个工作流')
-    return
-  }
   editMode.value = false
   currentStep.value = {
     type: '',
@@ -53,7 +39,7 @@ function handleCreate() {
   dialogVisible.value = true
 }
 
-function handleEdit(step: WorkflowNode) {
+function handleEdit(step: FlowStep) {
   editMode.value = true
   currentStep.value = { ...step, position: { ...step.position }, parameters: { ...step.parameters } }
   dialogVisible.value = true
@@ -72,16 +58,14 @@ async function handleSave() {
   loading.value = true
   try {
     if (editMode.value && currentStep.value.id) {
-      // Update existing step
-      await flowStepApi.update(selectedWorkflowId.value, currentStep.value.id, currentStep.value as WorkflowNode)
+      await flowStepApi.update(currentStep.value.id, currentStep.value as FlowStep)
       ElMessage.success('步骤已更新')
     } else {
-      // Create new step
-      await flowStepApi.create(selectedWorkflowId.value, currentStep.value)
+      await flowStepApi.create(currentStep.value)
       ElMessage.success('步骤已创建')
     }
     dialogVisible.value = false
-    await handleWorkflowChange(selectedWorkflowId.value)
+    await loadSteps()
   } catch (e: unknown) {
     ElMessage.error(`保存失败: ${String(e)}`)
   } finally {
@@ -89,13 +73,13 @@ async function handleSave() {
   }
 }
 
-async function handleDelete(step: WorkflowNode) {
+async function handleDelete(step: FlowStep) {
   await ElMessageBox.confirm(`确定删除步骤「${step.label}」？`, '警告', { type: 'warning' })
   loading.value = true
   try {
-    await flowStepApi.delete(selectedWorkflowId.value, step.id)
+    await flowStepApi.delete(step.id)
     ElMessage.success('已删除')
-    await handleWorkflowChange(selectedWorkflowId.value)
+    await loadSteps()
   } catch (e: unknown) {
     ElMessage.error(`删除失败: ${String(e)}`)
   } finally {
@@ -113,23 +97,9 @@ function formatPosition(pos: { x: number; y: number }) {
     <div class="page-header">
       <h2 class="page-title">流程步骤管理</h2>
       <div class="header-actions">
-        <el-select
-          v-model="selectedWorkflowId"
-          placeholder="选择工作流"
-          style="width: 280px; margin-right: 12px"
-          @change="handleWorkflowChange"
-        >
-          <el-option
-            v-for="wf in workflows"
-            :key="wf.id"
-            :label="wf.name"
-            :value="wf.id"
-          />
-        </el-select>
         <el-button
           type="primary"
           :icon="'Plus'"
-          :disabled="!selectedWorkflowId"
           @click="handleCreate"
         >新建步骤</el-button>
       </div>
@@ -177,12 +147,8 @@ function formatPosition(pos: { x: number; y: number }) {
     </el-table>
 
     <el-empty
-      v-if="!loading && selectedWorkflowId && steps.length === 0"
-      description="该工作流暂无步骤，点击「新建步骤」开始"
-    />
-    <el-empty
-      v-if="!loading && !selectedWorkflowId"
-      description="请选择一个工作流以查看步骤"
+      v-if="!loading && steps.length === 0"
+      description="暂无步骤，点击「新建步骤」开始"
     />
 
     <!-- Create/Edit Step Dialog -->

@@ -81,3 +81,13 @@ export interface NodeDefinition {
   color: string
   parameters: NodeParameterDef[]
 }
+
+export interface FlowStep {
+  id: string
+  type: string
+  label: string
+  position: NodePosition
+  parameters: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
