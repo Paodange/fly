@@ -38,45 +38,4 @@ public class WorkflowsController(WorkflowService workflowService) : ControllerBa
         var deleted = await workflowService.DeleteAsync(id);
         return deleted ? NoContent() : NotFound();
     }
-
-    // Flow step management endpoints
-    [HttpGet("{workflowId}/steps")]
-    public async Task<IActionResult> GetSteps(string workflowId)
-    {
-        var workflow = await workflowService.GetByIdAsync(workflowId);
-        if (workflow is null) return NotFound();
-
-        var steps = await workflowService.GetStepsAsync(workflowId);
-        return Ok(steps);
-    }
-
-    [HttpGet("{workflowId}/steps/{stepId}")]
-    public async Task<IActionResult> GetStep(string workflowId, string stepId)
-    {
-        var step = await workflowService.GetStepAsync(workflowId, stepId);
-        return step is null ? NotFound() : Ok(step);
-    }
-
-    [HttpPost("{workflowId}/steps")]
-    public async Task<IActionResult> CreateStep(string workflowId, [FromBody] WorkflowNode node)
-    {
-        var created = await workflowService.CreateStepAsync(workflowId, node);
-        if (created is null) return NotFound();
-
-        return CreatedAtAction(nameof(GetStep), new { workflowId, stepId = created.Id }, created);
-    }
-
-    [HttpPut("{workflowId}/steps/{stepId}")]
-    public async Task<IActionResult> UpdateStep(string workflowId, string stepId, [FromBody] WorkflowNode node)
-    {
-        var updated = await workflowService.UpdateStepAsync(workflowId, stepId, node);
-        return updated is null ? NotFound() : Ok(updated);
-    }
-
-    [HttpDelete("{workflowId}/steps/{stepId}")]
-    public async Task<IActionResult> DeleteStep(string workflowId, string stepId)
-    {
-        var deleted = await workflowService.DeleteStepAsync(workflowId, stepId);
-        return deleted ? NoContent() : NotFound();
-    }
 }

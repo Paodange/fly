@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowExecution, NodeDefinition, WorkflowNode } from '@/types'
+import type { Workflow, WorkflowExecution, NodeDefinition, WorkflowNode, FlowStep, ConstraintRuleDefinition } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
@@ -49,19 +49,20 @@ export const nodeDefinitionApi = {
 // ─── Flow Steps ───────────────────────────────────────────────────────────────
 
 export const flowStepApi = {
-  list: (workflowId: string) => request<WorkflowNode[]>(`/api/workflows/${workflowId}/steps`),
-  get: (workflowId: string, stepId: string) =>
-    request<WorkflowNode>(`/api/workflows/${workflowId}/steps/${stepId}`),
-  create: (workflowId: string, node: Partial<WorkflowNode>) =>
-    request<WorkflowNode>(`/api/workflows/${workflowId}/steps`, {
+  list: () => request<FlowStep[]>('/api/steps'),
+  get: (id: string) => request<FlowStep>(`/api/steps/${id}`),
+  create: (step: Partial<FlowStep>) =>
+    request<FlowStep>('/api/steps', {
       method: 'POST',
-      body: JSON.stringify(node)
+      body: JSON.stringify(step)
     }),
-  update: (workflowId: string, stepId: string, node: WorkflowNode) =>
-    request<WorkflowNode>(`/api/workflows/${workflowId}/steps/${stepId}`, {
+  update: (id: string, step: FlowStep) =>
+    request<FlowStep>(`/api/steps/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(node)
+      body: JSON.stringify(step)
     }),
-  delete: (workflowId: string, stepId: string) =>
-    request<void>(`/api/workflows/${workflowId}/steps/${stepId}`, { method: 'DELETE' }),
+  delete: (id: string) =>
+    request<void>(`/api/steps/${id}`, { method: 'DELETE' }),
+  constraintRules: () =>
+    request<ConstraintRuleDefinition[]>('/api/steps/constraint-rules'),
 }
