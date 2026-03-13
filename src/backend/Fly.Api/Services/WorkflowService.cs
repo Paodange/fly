@@ -1,74 +1,130 @@
+using Fly.Api.Data;
 using Fly.Api.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fly.Api.Services;
 
 public class WorkflowService
 {
-    private readonly Dictionary<string, Workflow> _store = [];
+    private readonly ApplicationDbContext _context;
 
-    public WorkflowService()
+    public WorkflowService(ApplicationDbContext context)
     {
-        // Seed a demo workflow
-        var demo = new Workflow
-        {
-            Id = "demo-workflow-1",
-            Name = "示例：ELISA检测流程",
-            Description = "酶联免疫吸附测定 (ELISA) 标准流程示例",
-            Nodes =
-            [
-                new WorkflowNode { Id = "n1", Type = "start",        Label = "开始",     Position = new() { X = 250, Y = 50  } },
-                new WorkflowNode { Id = "n2", Type = "pipetting",    Label = "加样",     Position = new() { X = 250, Y = 150 },
-                    Parameters = new() { ["volume_ul"] = 100.0, ["source"] = "样品孔板", ["target"] = "反应板" } },
-                new WorkflowNode { Id = "n3", Type = "incubation",   Label = "孵育",     Position = new() { X = 250, Y = 250 },
-                    Parameters = new() { ["temperature_c"] = 37.0, ["duration_min"] = 60.0 } },
-                new WorkflowNode { Id = "n4", Type = "washing",      Label = "洗板",     Position = new() { X = 250, Y = 350 },
-                    Parameters = new() { ["cycles"] = 3.0, ["volume_ul"] = 300.0 } },
-                new WorkflowNode { Id = "n5", Type = "pipetting",    Label = "加酶标抗体", Position = new() { X = 250, Y = 450 },
-                    Parameters = new() { ["volume_ul"] = 100.0, ["source"] = "抗体储液", ["target"] = "反应板" } },
-                new WorkflowNode { Id = "n6", Type = "incubation",   Label = "二抗孵育", Position = new() { X = 250, Y = 550 },
-                    Parameters = new() { ["temperature_c"] = 37.0, ["duration_min"] = 30.0 } },
-                new WorkflowNode { Id = "n7", Type = "washing",      Label = "洗板",     Position = new() { X = 250, Y = 650 },
-                    Parameters = new() { ["cycles"] = 5.0, ["volume_ul"] = 300.0 } },
-                new WorkflowNode { Id = "n8", Type = "detection",    Label = "酶标仪检测", Position = new() { X = 250, Y = 750 },
-                    Parameters = new() { ["mode"] = "absorbance", ["wavelength_nm"] = 450.0 } },
-                new WorkflowNode { Id = "n9", Type = "end",          Label = "结束",     Position = new() { X = 250, Y = 850 } }
-            ],
-            Edges =
-            [
-                new WorkflowEdge { Id = "e1", Source = "n1", Target = "n2" },
-                new WorkflowEdge { Id = "e2", Source = "n2", Target = "n3" },
-                new WorkflowEdge { Id = "e3", Source = "n3", Target = "n4" },
-                new WorkflowEdge { Id = "e4", Source = "n4", Target = "n5" },
-                new WorkflowEdge { Id = "e5", Source = "n5", Target = "n6" },
-                new WorkflowEdge { Id = "e6", Source = "n6", Target = "n7" },
-                new WorkflowEdge { Id = "e7", Source = "n7", Target = "n8" },
-                new WorkflowEdge { Id = "e8", Source = "n8", Target = "n9" }
-            ]
-        };
-        _store[demo.Id] = demo;
+        _context = context;
     }
 
-    public IEnumerable<Workflow> GetAll() => _store.Values.OrderByDescending(w => w.UpdatedAt);
+    public async Task<IEnumerable<Workflow>> GetAllAsync() =>
+        await _context.Workflows
+            .OrderByDescending(w => w.UpdatedAt)
+            .ToListAsync();
 
-    public Workflow? GetById(string id) => _store.TryGetValue(id, out var w) ? w : null;
+    public async Task<Workflow?> GetByIdAsync(string id) =>
+        await _context.Workflows.FindAsync(id);
 
-    public Workflow Create(Workflow workflow)
+    public async Task<Workflow> CreateAsync(Workflow workflow)
     {
         workflow.Id = Guid.NewGuid().ToString();
         workflow.CreatedAt = DateTime.UtcNow;
         workflow.UpdatedAt = DateTime.UtcNow;
-        _store[workflow.Id] = workflow;
+
+        _context.Workflows.Add(workflow);
+        await _context.SaveChangesAsync();
+
         return workflow;
     }
 
-    public Workflow? Update(string id, Workflow workflow)
+    public async Task<Workflow?> UpdateAsync(string id, Workflow workflow)
     {
-        if (!_store.ContainsKey(id)) return null;
-        workflow.Id = id;
-        workflow.UpdatedAt = DateTime.UtcNow;
-        _store[id] = workflow;
-        return workflow;
+        var existing = await _context.Workflows.FindAsync(id);
+        if (existing == null) return null;
+
+        existing.Name = workflow.Name;
+        existing.Description = workflow.Description;
+        existing.Nodes = workflow.Nodes;
+        existing.Edges = workflow.Edges;
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return existing;
     }
 
-    public bool Delete(string id) => _store.Remove(id);
+    public async Task<bool> DeleteAsync(string id)
+    {
+        var workflow = await _context.Workflows.FindAsync(id);
+        if (workflow == null) return false;
+
+        _context.Workflows.Remove(workflow);
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    // Flow step (node) management methods
+    public async Task<WorkflowNode?> GetStepAsync(string workflowId, string stepId)
+    {
+        var workflow = await _context.Workflows.FindAsync(workflowId);
+        return workflow?.Nodes.FirstOrDefault(n => n.Id == stepId);
+    }
+
+    public async Task<IEnumerable<WorkflowNode>> GetStepsAsync(string workflowId)
+    {
+        var workflow = await _context.Workflows.FindAsync(workflowId);
+        return workflow?.Nodes ?? Enumerable.Empty<WorkflowNode>();
+    }
+
+    public async Task<WorkflowNode?> CreateStepAsync(string workflowId, WorkflowNode node)
+    {
+        var workflow = await _context.Workflows.FindAsync(workflowId);
+        if (workflow == null) return null;
+
+        node.Id = Guid.NewGuid().ToString();
+        workflow.Nodes.Add(node);
+        workflow.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return node;
+    }
+
+    public async Task<WorkflowNode?> UpdateStepAsync(string workflowId, string stepId, WorkflowNode updatedNode)
+    {
+        var workflow = await _context.Workflows.FindAsync(workflowId);
+        if (workflow == null) return null;
+
+        var existingNode = workflow.Nodes.FirstOrDefault(n => n.Id == stepId);
+        if (existingNode == null) return null;
+
+        // Update the node properties
+        existingNode.Type = updatedNode.Type;
+        existingNode.Label = updatedNode.Label;
+        existingNode.Position = updatedNode.Position;
+        existingNode.Parameters = updatedNode.Parameters;
+
+        workflow.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return existingNode;
+    }
+
+    public async Task<bool> DeleteStepAsync(string workflowId, string stepId)
+    {
+        var workflow = await _context.Workflows.FindAsync(workflowId);
+        if (workflow == null) return false;
+
+        var node = workflow.Nodes.FirstOrDefault(n => n.Id == stepId);
+        if (node == null) return false;
+
+        workflow.Nodes.Remove(node);
+
+        // Also remove any edges connected to this node
+        workflow.Edges.RemoveAll(e => e.Source == stepId || e.Target == stepId);
+
+        workflow.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
 }

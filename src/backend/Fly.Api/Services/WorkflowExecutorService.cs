@@ -1,11 +1,12 @@
 using Fly.Api.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fly.Api.Services;
 
 public class WorkflowExecutorService
 {
     private readonly Dictionary<string, WorkflowExecution> _executions = [];
-    private readonly WorkflowService _workflowService;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     // Simulated execution times per node type (ms)
     private static readonly Dictionary<string, int> NodeDurations = new()
@@ -22,9 +23,9 @@ public class WorkflowExecutorService
         ["wait"]           = 1000,
     };
 
-    public WorkflowExecutorService(WorkflowService workflowService)
+    public WorkflowExecutorService(IServiceScopeFactory scopeFactory)
     {
-        _workflowService = workflowService;
+        _scopeFactory = scopeFactory;
     }
 
     public IEnumerable<WorkflowExecution> GetAll() =>
@@ -36,9 +37,11 @@ public class WorkflowExecutorService
     public IEnumerable<WorkflowExecution> GetByWorkflow(string workflowId) =>
         _executions.Values.Where(e => e.WorkflowId == workflowId).OrderByDescending(e => e.StartedAt);
 
-    public WorkflowExecution? Start(string workflowId)
+    public async Task<WorkflowExecution?> StartAsync(string workflowId)
     {
-        var workflow = _workflowService.GetById(workflowId);
+        using var scope = _scopeFactory.CreateScope();
+        var workflowService = scope.ServiceProvider.GetRequiredService<WorkflowService>();
+        var workflow = await workflowService.GetByIdAsync(workflowId);
         if (workflow is null) return null;
 
         var execution = new WorkflowExecution
