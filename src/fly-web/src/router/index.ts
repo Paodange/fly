@@ -24,6 +24,11 @@ const router = createRouter({
       name: 'execution-detail',
       component: () => import('../views/ExecutionDetailView.vue'),
     },
+    {
+      path: '/flow-steps',
+      name: 'flow-steps',
+      component: () => import('../views/FlowStepManagementView.vue'),
+    },
   ],
 })
 

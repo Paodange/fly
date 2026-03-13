@@ -7,6 +7,7 @@ const collapsed = ref(false)
 
 const menuItems = [
   { index: '/', icon: 'Grid', label: '工作流列表' },
+  { index: '/flow-steps', icon: 'Setting', label: '流程步骤管理' },
   { index: '/executions', icon: 'VideoPlay', label: '执行记录' },
 ]
 
