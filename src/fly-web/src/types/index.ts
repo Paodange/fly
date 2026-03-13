@@ -11,6 +11,7 @@ export interface WorkflowNode {
   label: string
   position: NodePosition
   parameters: Record<string, unknown>
+  parentNode?: string // ID of parent node for nested relationships
 }
 
 export interface WorkflowEdge {

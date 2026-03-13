@@ -18,6 +18,7 @@ public class WorkflowNode
     public string Label { get; set; } = string.Empty;
     public NodePosition Position { get; set; } = new();
     public Dictionary<string, object?> Parameters { get; set; } = [];
+    public string? ParentNode { get; set; } // ID of parent node for nested relationships
 }
 
 public class WorkflowEdge
