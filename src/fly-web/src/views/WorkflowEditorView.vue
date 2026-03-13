@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, markRaw } from 'vue'
+import { ref, computed, onMounted, onUnmounted, markRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VueFlow, useVueFlow, type Node, type Edge } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -19,7 +19,7 @@ const workflowStore = useWorkflowStore()
 const ndStore = useNodeDefinitionStore()
 const executionStore = useExecutionStore()
 
-const { nodes, edges, addNodes, addEdges, onConnect, setNodes, setEdges, onNodeDrag, onNodeDragStop, getIntersectingNodes } = useVueFlow()
+const { nodes, edges, addNodes, addEdges, onConnect, setNodes, setEdges, onNodeDrag, onNodeDragStop, getIntersectingNodes, removeNodes, removeEdges } = useVueFlow()
 
 const saving = ref(false)
 const running = ref(false)
@@ -92,6 +92,14 @@ onMounted(async () => {
   }
   setNodes(toFlowNodes(workflow.value.nodes))
   setEdges(toFlowEdges(workflow.value.edges))
+
+  // Add keyboard event listener for delete
+  window.addEventListener('keydown', onKeyDown)
+})
+
+onUnmounted(() => {
+  // Remove keyboard event listener
+  window.removeEventListener('keydown', onKeyDown)
 })
 
 onConnect((params) => {
@@ -192,6 +200,65 @@ const categoryGroups = computed(() => {
   return map
 })
 
+// Validate node placement constraints
+function validateNodePlacement(nodeType: string, containerType: string): string | null {
+  // break and continue can only be placed inside loop containers
+  if (nodeType === 'break' || nodeType === 'continue') {
+    if (containerType !== 'loop') {
+      return `${nodeType === 'break' ? '跳出循环' : '继续循环'}节点只能放置在循环容器中`
+    }
+  }
+  return null
+}
+
+// Delete selected nodes and their connected edges
+function deleteSelectedNodes() {
+  if (!selectedNode.value) return
+
+  const nodeId = selectedNode.value.id
+  const nodeType = (selectedNode.value.data as { type: string }).type
+
+  // Prevent deletion of start and end nodes
+  if (nodeType === 'start' || nodeType === 'end') {
+    ElMessage.warning('不能删除开始或结束节点')
+    return
+  }
+
+  // Find all child nodes (nodes that have this node as parent)
+  const childNodes = nodes.value.filter((n) => n.parentNode === nodeId)
+  const nodeIdsToDelete = [nodeId, ...childNodes.map((n) => n.id)]
+
+  // Find all edges connected to these nodes
+  const edgesToDelete = edges.value.filter((e) =>
+    nodeIdsToDelete.includes(e.source) || nodeIdsToDelete.includes(e.target)
+  )
+
+  // Remove edges first
+  if (edgesToDelete.length > 0) {
+    removeEdges(edgesToDelete.map((e) => e.id))
+  }
+
+  // Remove nodes
+  removeNodes(nodeIdsToDelete)
+
+  // Clear selection
+  selectedNode.value = null
+  showParamPanel.value = false
+
+  ElMessage.success(`已删除节点${childNodes.length > 0 ? `及其 ${childNodes.length} 个子节点` : ''}`)
+}
+
+// Handle keyboard events for delete
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    // Only delete if parameter panel is closed (to avoid interfering with input fields)
+    if (!showParamPanel.value && selectedNode.value) {
+      e.preventDefault()
+      deleteSelectedNodes()
+    }
+  }
+}
+
 // Handle node drag to detect if dropping onto a container
 onNodeDrag(({ node }) => {
   draggedNode.value = node
@@ -208,6 +275,24 @@ onNodeDragStop(({ node }) => {
     )
 
     if (containerNode && containerNode.id !== node.id && !node.parentNode) {
+      // Check if the node being dropped is also a container node
+      const nodeType = (node.data as { type: string }).type
+      const isNodeContainer = ['loop', 'parallel', 'async', 'decision'].includes(nodeType)
+
+      if (isNodeContainer) {
+        ElMessage.warning('容器节点不能嵌套到其他容器节点中')
+        draggedNode.value = null
+        return
+      }
+
+      // Validate placement constraints
+      const constraintError = validateNodePlacement(nodeType, (containerNode.data as { type: string }).type)
+      if (constraintError) {
+        ElMessage.error(constraintError)
+        draggedNode.value = null
+        return
+      }
+
       // Set the parent relationship
       const targetNode = nodes.value.find((n) => n.id === node.id)
       if (targetNode) {
@@ -279,7 +364,16 @@ onNodeDragStop(({ node }) => {
         <aside v-if="showParamPanel && selectedNode" class="param-panel">
           <div class="param-header">
             <span>节点参数</span>
-            <el-button text :icon="'Close'" @click="showParamPanel = false" />
+            <div class="param-header-actions">
+              <el-button
+                text
+                :icon="'Delete'"
+                type="danger"
+                @click="deleteSelectedNodes"
+                title="删除节点 (Delete)"
+              />
+              <el-button text :icon="'Close'" @click="showParamPanel = false" />
+            </div>
           </div>
           <el-divider style="margin: 8px 0" />
           <el-form label-position="top" size="small">
@@ -419,6 +513,11 @@ onNodeDragStop(({ node }) => {
   align-items: center;
   font-weight: 600;
   font-size: 14px;
+}
+
+.param-header-actions {
+  display: flex;
+  gap: 4px;
 }
 
 .param-desc {
