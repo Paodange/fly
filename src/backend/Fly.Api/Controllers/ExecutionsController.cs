@@ -22,9 +22,9 @@ public class ExecutionsController(WorkflowExecutorService executorService) : Con
         Ok(executorService.GetByWorkflow(workflowId));
 
     [HttpPost("start/{workflowId}")]
-    public IActionResult Start(string workflowId)
+    public async Task<IActionResult> Start(string workflowId)
     {
-        var execution = executorService.Start(workflowId);
+        var execution = await executorService.StartAsync(workflowId);
         return execution is null
             ? NotFound(new { message = $"Workflow '{workflowId}' not found." })
             : Ok(execution);

@@ -424,3 +424,6 @@ src/fly-web/.env
 src/fly-web/.env.local
 src/fly-web/.env.*.local
 src/fly-web/tsconfig.tsbuildinfo
+*.db
+*.db-shm
+*.db-wal
