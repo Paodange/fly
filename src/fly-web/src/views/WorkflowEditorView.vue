@@ -10,6 +10,7 @@ import { useWorkflowStore } from '@/stores/workflows'
 import { useNodeDefinitionStore } from '@/stores/nodeDefinitions'
 import { useExecutionStore } from '@/stores/executions'
 import LabFlowNode from '@/components/LabFlowNode.vue'
+import LabContainerNode from '@/components/LabContainerNode.vue'
 import type { NodeDefinition } from '@/types'
 
 const route = useRoute()
@@ -18,24 +19,37 @@ const workflowStore = useWorkflowStore()
 const ndStore = useNodeDefinitionStore()
 const executionStore = useExecutionStore()
 
-const { nodes, edges, addNodes, addEdges, onConnect, setNodes, setEdges } = useVueFlow()
+const { nodes, edges, addNodes, addEdges, onConnect, setNodes, setEdges, onNodeDrag, onNodeDragStop, getIntersectingNodes } = useVueFlow()
 
 const saving = ref(false)
 const running = ref(false)
 const selectedNode = ref<Node | null>(null)
 const showParamPanel = ref(false)
+const draggedNode = ref<Node | null>(null)
 
 const workflowId = computed(() => route.params.id as string)
 const workflow = computed(() => workflowStore.current)
 
 // Convert backend model ↔ Vue Flow format
 function toFlowNodes(backendNodes: typeof workflowStore.current extends null ? never : NonNullable<typeof workflowStore.current>['nodes']): Node[] {
-  return (backendNodes ?? []).map((n) => ({
-    id: n.id,
-    type: 'labNode',
-    position: { x: n.position.x, y: n.position.y },
-    data: { label: n.label, type: n.type, parameters: { ...n.parameters } },
-  }))
+  return (backendNodes ?? []).map((n) => {
+    // Container nodes (loop, parallel, etc.) use special node type
+    const isContainer = ['loop', 'parallel', 'async', 'decision'].includes(n.type)
+
+    return {
+      id: n.id,
+      type: isContainer ? 'labContainerNode' : 'labNode',
+      position: { x: n.position.x, y: n.position.y },
+      data: {
+        label: n.label,
+        type: n.type,
+        parameters: { ...n.parameters },
+        parentNode: n.parentNode
+      },
+      parentNode: n.parentNode, // Vue Flow parent-child relationship
+      extent: n.parentNode ? 'parent' : undefined, // Constrain child nodes to parent
+    }
+  })
 }
 
 function toFlowEdges(backendEdges: NonNullable<typeof workflowStore.current>['edges']): Edge[] {
@@ -57,6 +71,7 @@ function fromFlowToBackend() {
       label: (n.data as { label: string }).label,
       position: { x: n.position.x, y: n.position.y },
       parameters: (n.data as { parameters: Record<string, unknown> }).parameters,
+      parentNode: n.parentNode, // Save parent-child relationship
     })),
     edges: edges.value.map((e) => ({
       id: e.id,
@@ -101,10 +116,13 @@ function onDrop(e: DragEvent) {
   const x = e.clientX - (rect?.left ?? 0) - 60
   const y = e.clientY - (rect?.top ?? 0) - 30
 
+  // Container nodes (loop, parallel, etc.) use special node type
+  const isContainer = ['loop', 'parallel', 'async', 'decision'].includes(type)
+
   const id = `node-${Date.now()}`
   addNodes([{
     id,
-    type: 'labNode',
+    type: isContainer ? 'labContainerNode' : 'labNode',
     position: { x, y },
     data: {
       label: def.label,
@@ -113,6 +131,12 @@ function onDrop(e: DragEvent) {
         def.parameters.map((p) => [p.key, p.defaultValue ?? null])
       ),
     },
+    ...(isContainer && {
+      style: {
+        width: '350px',
+        height: '200px',
+      }
+    })
   }])
 }
 
@@ -167,6 +191,41 @@ const categoryGroups = computed(() => {
   }
   return map
 })
+
+// Handle node drag to detect if dropping onto a container
+onNodeDrag(({ node }) => {
+  draggedNode.value = node
+})
+
+onNodeDragStop(({ node }) => {
+  // Check if the node was dropped onto a container node
+  const intersectingNodes = getIntersectingNodes(node)
+
+  if (intersectingNodes && intersectingNodes.length > 0) {
+    // Find the first container node in the intersections
+    const containerNode = intersectingNodes.find((n: Node) =>
+      ['loop', 'parallel', 'async', 'decision'].includes((n.data as { type: string })?.type)
+    )
+
+    if (containerNode && containerNode.id !== node.id && !node.parentNode) {
+      // Set the parent relationship
+      const targetNode = nodes.value.find((n) => n.id === node.id)
+      if (targetNode) {
+        targetNode.parentNode = containerNode.id
+        ;(targetNode.data as { parentNode?: string }).parentNode = containerNode.id
+        targetNode.extent = 'parent'
+        // Adjust position to be relative to parent
+        targetNode.position = {
+          x: node.position.x - containerNode.position.x,
+          y: node.position.y - containerNode.position.y
+        }
+        setNodes([...nodes.value])
+        ElMessage.success(`节点已添加到 ${(containerNode.data as { label: string }).label} 中`)
+      }
+    }
+  }
+  draggedNode.value = null
+})
 </script>
 
 <template>
@@ -202,7 +261,10 @@ const categoryGroups = computed(() => {
       <!-- Vue Flow Canvas -->
       <div class="canvas" @dragover="onDragOver" @drop="onDrop">
         <VueFlow
-          :node-types="{ labNode: markRaw(LabFlowNode) as any }"
+          :node-types="{
+            labNode: markRaw(LabFlowNode) as any,
+            labContainerNode: markRaw(LabContainerNode) as any
+          }"
           fit-view-on-init
           @node-click="onNodeClick"
         >
