@@ -82,6 +82,9 @@ public class WorkflowService
         workflow.Nodes.Add(node);
         workflow.UpdatedAt = DateTime.UtcNow;
 
+        // Mark Nodes property as modified to trigger update
+        _context.Entry(workflow).Property(w => w.Nodes).IsModified = true;
+
         await _context.SaveChangesAsync();
 
         return node;
@@ -103,6 +106,9 @@ public class WorkflowService
 
         workflow.UpdatedAt = DateTime.UtcNow;
 
+        // Mark Nodes property as modified to trigger update
+        _context.Entry(workflow).Property(w => w.Nodes).IsModified = true;
+
         await _context.SaveChangesAsync();
 
         return existingNode;
@@ -122,6 +128,10 @@ public class WorkflowService
         workflow.Edges.RemoveAll(e => e.Source == stepId || e.Target == stepId);
 
         workflow.UpdatedAt = DateTime.UtcNow;
+
+        // Mark both Nodes and Edges as modified to trigger update
+        _context.Entry(workflow).Property(w => w.Nodes).IsModified = true;
+        _context.Entry(workflow).Property(w => w.Edges).IsModified = true;
 
         await _context.SaveChangesAsync();
 

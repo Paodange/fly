@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowExecution, NodeDefinition } from '@/types'
+import type { Workflow, WorkflowExecution, NodeDefinition, WorkflowNode } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
@@ -44,4 +44,24 @@ export const executionApi = {
 
 export const nodeDefinitionApi = {
   list: () => request<NodeDefinition[]>('/api/nodedefinitions'),
+}
+
+// ─── Flow Steps ───────────────────────────────────────────────────────────────
+
+export const flowStepApi = {
+  list: (workflowId: string) => request<WorkflowNode[]>(`/api/workflows/${workflowId}/steps`),
+  get: (workflowId: string, stepId: string) =>
+    request<WorkflowNode>(`/api/workflows/${workflowId}/steps/${stepId}`),
+  create: (workflowId: string, node: Partial<WorkflowNode>) =>
+    request<WorkflowNode>(`/api/workflows/${workflowId}/steps`, {
+      method: 'POST',
+      body: JSON.stringify(node)
+    }),
+  update: (workflowId: string, stepId: string, node: WorkflowNode) =>
+    request<WorkflowNode>(`/api/workflows/${workflowId}/steps/${stepId}`, {
+      method: 'PUT',
+      body: JSON.stringify(node)
+    }),
+  delete: (workflowId: string, stepId: string) =>
+    request<void>(`/api/workflows/${workflowId}/steps/${stepId}`, { method: 'DELETE' }),
 }
