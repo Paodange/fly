@@ -39,7 +39,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(s => s.Parameters)
                 .HasConversion(
                     v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null!),
-                    v => JsonSerializer.Deserialize<Dictionary<string, object?>>(v, (JsonSerializerOptions)null!) ?? new Dictionary<string, object?>()
+                    v => DeserializeParameters(v)
                 )
                 .HasColumnType("TEXT");
         });
@@ -72,5 +72,21 @@ public class ApplicationDbContext : DbContext
             // Create index on UpdatedAt for sorting
             entity.HasIndex(w => w.UpdatedAt);
         });
+    }
+
+    /// <summary>
+    /// Safely deserializes the FlowStep Parameters column, handling legacy data gracefully.
+    /// </summary>
+    private static List<FlowStepParameter> DeserializeParameters(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<FlowStepParameter>>(json, (JsonSerializerOptions)null!) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
     }
 }

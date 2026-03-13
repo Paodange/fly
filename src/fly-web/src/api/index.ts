@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowExecution, NodeDefinition, WorkflowNode, FlowStep } from '@/types'
+import type { Workflow, WorkflowExecution, NodeDefinition, WorkflowNode, FlowStep, ConstraintRuleDefinition } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
@@ -63,4 +63,6 @@ export const flowStepApi = {
     }),
   delete: (id: string) =>
     request<void>(`/api/steps/${id}`, { method: 'DELETE' }),
+  constraintRules: () =>
+    request<ConstraintRuleDefinition[]>('/api/steps/constraint-rules'),
 }

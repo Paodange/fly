@@ -82,12 +82,40 @@ export interface NodeDefinition {
   parameters: NodeParameterDef[]
 }
 
+// ─── Flow Step Parameter / Constraint types ───────────────────────────────────
+
+export interface ParameterConstraint {
+  ruleType: string
+  value: string
+  message?: string
+}
+
+export interface FlowStepParameter {
+  key: string
+  label: string
+  type: 'string' | 'number' | 'boolean' | 'select'
+  defaultValue?: string
+  required: boolean
+  unit?: string
+  description?: string
+  options: string[]
+  constraints: ParameterConstraint[]
+}
+
+export interface ConstraintRuleDefinition {
+  type: string
+  label: string
+  description: string
+  applicableTypes: string[]
+  valueType: 'number' | 'string'
+}
+
 export interface FlowStep {
   id: string
   type: string
   label: string
   position: NodePosition
-  parameters: Record<string, unknown>
+  parameters: FlowStepParameter[]
   createdAt: string
   updatedAt: string
 }
